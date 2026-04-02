@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BEI 加重平均シミュレーター</title>
+<style>
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f4;
+  --bg-tertiary: #eeedec;
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b6b6b;
+  --text-tertiary: #999;
+  --border: rgba(0,0,0,0.12);
+  --border-hover: rgba(0,0,0,0.25);
+  --info-bg: #E6F1FB;
+  --info-border: #85B7EB;
+  --info-text: #0C447C;
+  --success: #1D9E75;
+  --success-bg: #E1F5EE;
+  --success-text: #085041;
+  --danger: #E24B4A;
+  --danger-bg: #FCEBEB;
+  --danger-text: #791F1F;
+  --warn-bg: #FAEEDA;
+  --warn-text: #633806;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #2a2a2a;
+    --bg-tertiary: #333;
+    --text-primary: #e8e8e8;
+    --text-secondary: #aaa;
+    --text-tertiary: #777;
+    --border: rgba(255,255,255,0.12);
+    --border-hover: rgba(255,255,255,0.25);
+    --info-bg: #0C447C;
+    --info-border: #378ADD;
+    --info-text: #B5D4F4;
+    --success: #5DCAA5;
+    --success-bg: #085041;
+    --success-text: #9FE1CB;
+    --danger: #F09595;
+    --danger-bg: #501313;
+    --danger-text: #F7C1C1;
+    --warn-bg: #412402;
+    --warn-text: #FAC775;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text-primary); background: var(--bg-primary); padding: 1.5rem; max-width: 660px; margin: 0 auto; }
+
+.title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+h1 { font-size: 20px; font-weight: 500; }
+.reset-btn { font-size: 13px; color: var(--text-secondary); background: var(--bg-secondary); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 5px 12px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+.reset-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.reset-btn:active { transform: scale(0.97); }
+
+.dist-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 1.25rem; gap: 1px; background: var(--border); }
+.dist-seg { transition: flex-basis 0.2s ease; min-width: 0; }
+
+.header { display: flex; gap: 10px; align-items: center; padding: 0 0 6px; font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.02em; }
+.header .h-label { min-width: 36px; }
+.header .h-desc { min-width: 56px; }
+.header .h-slider { flex: 1; text-align: center; }
+.header .h-pct { width: 64px; text-align: right; padding-right: 14px; }
+.header .h-bei { width: 68px; text-align: center; }
+.header .h-lock { width: 28px; }
+
+.row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 0.5px solid var(--border); }
+.row:last-child { border-bottom: none; }
+.row.is-locked { opacity: 0.55; }
+.label { min-width: 36px; font-weight: 500; font-size: 15px; }
+.desc { font-size: 12px; color: var(--text-secondary); min-width: 56px; }
+
+.slider-wrap { flex: 1; }
+input[type="range"] { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: var(--bg-tertiary); border-radius: 3px; outline: none; cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--bg-primary); border: 2.5px solid currentColor; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--bg-primary); border: 2.5px solid currentColor; cursor: pointer; }
+
+.pct-wrap { display: flex; align-items: center; width: 64px; justify-content: flex-end; }
+.pct-input { width: 48px; text-align: right; font-size: 13px; font-weight: 500; color: var(--text-secondary); padding: 4px 2px; border: 0.5px solid transparent; border-radius: var(--radius); background: transparent; -moz-appearance: textfield; font-family: inherit; }
+.pct-input::-webkit-inner-spin-button, .pct-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.pct-input:hover { border-color: var(--border); }
+.pct-input:focus { outline: none; border-color: var(--border-hover); background: var(--bg-primary); box-shadow: 0 0 0 2px var(--info-border); color: var(--text-primary); }
+.pct-unit { font-size: 12px; color: var(--text-tertiary); }
+
+.bei-input { width: 68px; text-align: center; font-size: 13px; padding: 5px 4px; border: 0.5px solid var(--border-hover); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-family: inherit; -moz-appearance: textfield; }
+.bei-input::-webkit-inner-spin-button, .bei-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.bei-input:focus { outline: none; box-shadow: 0 0 0 2px var(--info-border); }
+
+.lock-btn { width: 28px; height: 28px; border-radius: 50%; border: 0.5px solid var(--border); background: var(--bg-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; color: var(--text-tertiary); transition: all 0.15s; }
+.lock-btn:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+.lock-btn.locked { background: var(--info-bg); border-color: var(--info-border); color: var(--info-text); }
+
+.sum-row { display: flex; justify-content: flex-end; padding: 8px 0; font-size: 12px; gap: 6px; align-items: center; }
+.sum-badge { padding: 2px 10px; border-radius: 10px; font-weight: 500; font-size: 11px; }
+.sum-ok { background: var(--success-bg); color: var(--success-text); }
+.sum-ng { background: var(--danger-bg); color: var(--danger-text); }
+
+.result-area { margin-top: 1rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); text-align: center; }
+.result-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+.result-val { font-size: 36px; font-weight: 500; line-height: 1.2; }
+.zeb-badge { display: inline-block; margin-top: 10px; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; letter-spacing: 0.03em; }
+.zeb-zeb { background: var(--success-bg); color: var(--success-text); }
+.zeb-nearly { background: var(--info-bg); color: var(--info-text); }
+.zeb-ready { background: var(--warn-bg); color: var(--warn-text); }
+.zeb-oriented { background: var(--bg-tertiary); color: var(--text-secondary); }
+.zeb-over { background: var(--danger-bg); color: var(--danger-text); }
+.formula { margin-top: 12px; font-size: 12px; color: var(--text-tertiary); text-align: center; line-height: 1.7; font-family: ui-monospace, 'SF Mono', 'Menlo', monospace; }
+</style>
+</head>
+<body>
+
+<div class="title-row">
+  <h1>BEI 加重平均シミュレーター</h1>
+  <button class="reset-btn" id="resetBtn">リセット</button>
+</div>
+
+<div class="dist-bar" id="distBar"></div>
+
+<div class="header">
+  <span class="h-label"></span>
+  <span class="h-desc">用途</span>
+  <span class="h-slider">重み</span>
+  <span class="h-pct">%</span>
+  <span class="h-bei">BEI値</span>
+  <span class="h-lock"></span>
+</div>
+<div id="rows"></div>
+<div class="sum-row" id="sumRow"></div>
+
+<div class="result-area">
+  <div class="result-label">BEI/ALL（加重平均）</div>
+  <div class="result-val" id="result">—</div>
+  <div id="zebBadge"></div>
+  <div class="formula" id="formula"></div>
+</div>
+
+<script>
+var items = [
+  { key: 'AC', name: '空調',  color: '#378ADD' },
+  { key: 'V',  name: '換気',  color: '#1D9E75' },
+  { key: 'L',  name: '照明',  color: '#BA7517' },
+  { key: 'HW', name: '給湯',  color: '#D4537E' },
+  { key: 'EV', name: '昇降機', color: '#7F77DD' }
+];
+
+var DEFAULTS = { weights: [40, 15, 25, 10, 10], beis: [0.80, 0.90, 0.70, 1.00, 1.00] };
+
+var state = {
+  weights: DEFAULTS.weights.slice(),
+  beis: DEFAULTS.beis.slice(),
+  locked: [false, false, false, false, false]
+};
+
+var container = document.getElementById('rows');
+var resultEl = document.getElementById('result');
+var formulaEl = document.getElementById('formula');
+var distBar = document.getElementById('distBar');
+var sumRow = document.getElementById('sumRow');
+var zebBadge = document.getElementById('zebBadge');
+
+function rd1(n) { return Math.round(n * 10) / 10; }
+
+function render(focusType, focusIdx) {
+  container.innerHTML = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var wVal = rd1(state.weights[i]);
+    var row = document.createElement('div');
+    row.className = 'row' + (state.locked[i] ? ' is-locked' : '');
+    row.innerHTML =
+      '<span class="label" style="color:' + it.color + '">' + it.key + '</span>' +
+      '<span class="desc">' + it.name + '</span>' +
+      '<div class="slider-wrap">' +
+        '<input type="range" min="0" max="100" step="0.1" value="' + wVal + '" style="accent-color:' + it.color + ';color:' + it.color + '" data-idx="' + i + '" class="wslider">' +
+      '</div>' +
+      '<div class="pct-wrap">' +
+        '<input type="number" class="pct-input" min="0" max="100" step="0.1" value="' + wVal.toFixed(1) + '" data-idx="' + i + '" data-type="pct">' +
+        '<span class="pct-unit">%</span>' +
+      '</div>' +
+      '<input type="number" class="bei-input" step="0.01" min="0" max="9.99" value="' + state.beis[i].toFixed(2) + '" data-idx="' + i + '" data-type="bei">' +
+      '<button class="lock-btn ' + (state.locked[i] ? 'locked' : '') + '" data-idx="' + i + '" title="' + (state.locked[i] ? 'ロック解除' : 'ロック（固定）') + '">' + (state.locked[i] ? '\u{1F512}' : '\u{1F513}') + '</button>';
+    container.appendChild(row);
+  }
+
+  if (focusType != null && focusIdx != null) {
+    var sel = focusType === 'pct'
+      ? container.querySelectorAll('.pct-input')[focusIdx]
+      : container.querySelectorAll('.bei-input')[focusIdx];
+    if (sel) { sel.focus(); sel.select(); }
+  }
+
+  updateDistBar();
+  updateSum();
+  updateResult();
+}
+
+function updateDistBar() {
+  distBar.innerHTML = '';
+  for (var i = 0; i < items.length; i++) {
+    var seg = document.createElement('div');
+    seg.className = 'dist-seg';
+    seg.style.flexBasis = state.weights[i] + '%';
+    seg.style.background = items[i].color;
+    seg.title = items[i].key + ': ' + rd1(state.weights[i]).toFixed(1) + '%';
+    distBar.appendChild(seg);
+  }
+}
+
+function updateSum() {
+  var sum = rd1(state.weights.reduce(function(a, b) { return a + b; }, 0));
+  var ok = Math.abs(sum - 100) < 0.05;
+  sumRow.innerHTML = '<span style="color:var(--text-tertiary)">合計</span> <span class="sum-badge ' +
+    (ok ? 'sum-ok' : 'sum-ng') + '">' + sum.toFixed(1) + '%' + (ok ? '' : ' (要調整)') + '</span>';
+}
+
+function distribute(changedIdx, newVal) {
+  newVal = rd1(Math.max(0, Math.min(100, newVal)));
+  var old = state.weights[changedIdx];
+  var diff = rd1(newVal - old);
+  if (Math.abs(diff) < 0.05) return;
+
+  var unlocked = [];
+  for (var i = 0; i < 5; i++) {
+    if (i !== changedIdx && !state.locked[i]) unlocked.push(i);
+  }
+  if (unlocked.length === 0) return;
+
+  state.weights[changedIdx] = newVal;
+  var remaining = -diff;
+  var totalUnlocked = unlocked.reduce(function(s, j) { return s + state.weights[j]; }, 0);
+
+  if (totalUnlocked < 0.05) {
+    var each = rd1(remaining / unlocked.length);
+    for (var k = 0; k < unlocked.length; k++) {
+      var j = unlocked[k];
+      state.weights[j] = k < unlocked.length - 1 ? each : rd1(remaining - each * (unlocked.length - 1));
+    }
+  } else {
+    var allocated = 0;
+    for (var k = 0; k < unlocked.length; k++) {
+      var j = unlocked[k];
+      if (k === unlocked.length - 1) {
+        state.weights[j] = rd1(Math.max(0, state.weights[j] + remaining - allocated));
+      } else {
+        var share = rd1(remaining * (state.weights[j] / totalUnlocked));
+        state.weights[j] = rd1(Math.max(0, state.weights[j] + share));
+        allocated = rd1(allocated + share);
+      }
+    }
+  }
+
+  var sum = rd1(state.weights.reduce(function(a, b) { return a + b; }, 0));
+  if (Math.abs(sum - 100) > 0.05) {
+    var fix = rd1(100 - sum);
+    for (var k = unlocked.length - 1; k >= 0; k--) {
+      var j = unlocked[k];
+      var nv = rd1(state.weights[j] + fix);
+      if (nv >= 0 && nv <= 100) { state.weights[j] = nv; break; }
+    }
+  }
+
+  for (var i = 0; i < state.weights.length; i++) {
+    state.weights[i] = rd1(Math.max(0, Math.min(100, state.weights[i])));
+  }
+}
+
+function getZebGrade(bei) {
+  if (bei <= 0.25) return { label: 'ZEB',          cls: 'zeb-zeb' };
+  if (bei <= 0.5)  return { label: 'Nearly ZEB',   cls: 'zeb-nearly' };
+  if (bei <= 0.75) return { label: 'ZEB Ready',    cls: 'zeb-ready' };
+  if (bei <= 1.0)  return { label: 'ZEB Oriented', cls: 'zeb-oriented' };
+  return { label: 'BEI > 1.0（基準未達）', cls: 'zeb-over' };
+}
+
+function updateResult() {
+  var totalW = rd1(state.weights.reduce(function(a, b) { return a + b; }, 0));
+  if (totalW < 0.05) {
+    resultEl.textContent = '\u2014';
+    formulaEl.textContent = '';
+    zebBadge.innerHTML = '';
+    return;
+  }
+  var num = 0;
+  var parts = [];
+  for (var i = 0; i < items.length; i++) {
+    num += state.weights[i] * state.beis[i];
+    if (state.weights[i] > 0) {
+      parts.push(state.beis[i].toFixed(2) + '\u00d7' + rd1(state.weights[i]).toFixed(1) + '%');
+    }
+  }
+  var val = num / totalW;
+  resultEl.textContent = val.toFixed(3);
+  resultEl.style.color = val <= 1.0 ? 'var(--success)' : 'var(--danger)';
+
+  var grade = getZebGrade(val);
+  zebBadge.innerHTML = '<span class="zeb-badge ' + grade.cls + '">' + grade.label + '</span>';
+
+  formulaEl.textContent = '( ' + parts.join(' + ') + ' ) / ' + totalW.toFixed(1);
+}
+
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('wslider')) {
+    var idx = parseInt(e.target.dataset.idx);
+    if (state.locked[idx]) return;
+    distribute(idx, parseFloat(e.target.value));
+    render();
+  }
+  if (e.target.dataset.type === 'pct') {
+    var idx = parseInt(e.target.dataset.idx);
+    if (state.locked[idx]) return;
+    var val = parseFloat(e.target.value);
+    if (isNaN(val)) return;
+    distribute(idx, val);
+    render('pct', idx);
+  }
+  if (e.target.dataset.type === 'bei') {
+    var idx = parseInt(e.target.dataset.idx);
+    state.beis[idx] = parseFloat(e.target.value) || 0;
+    updateDistBar();
+    updateSum();
+    updateResult();
+  }
+});
+
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.lock-btn');
+  if (!btn) return;
+  var idx = parseInt(btn.dataset.idx);
+  var lockedCount = state.locked.filter(function(v) { return v; }).length;
+  if (!state.locked[idx] && lockedCount >= 4) return;
+  state.locked[idx] = !state.locked[idx];
+  render();
+});
+
+document.getElementById('resetBtn').addEventListener('click', function() {
+  state.weights = DEFAULTS.weights.slice();
+  state.beis = DEFAULTS.beis.slice();
+  state.locked = [false, false, false, false, false];
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
